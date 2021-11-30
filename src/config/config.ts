@@ -1,7 +1,7 @@
 /* eslint-disable */
 import { User } from "src/users/entities/user.entity";
 export const Config = () => ({
-    jwtSecret: process.env.JWT_SECRET,
+    jwtSecret: process.env.JWT_ACCESs_TOKEN_SECRET,
     database: {
         type: process.env.DB_DRIVER,
         // host: process.env.DB_HOST,

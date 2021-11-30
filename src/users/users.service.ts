@@ -21,15 +21,14 @@ export class UsersService {
   async register(createUserDto: CreateUserDto): Promise<ResponseWrapper> {
 
     const password = await bcrypt.hash(createUserDto.password, parseInt(this.configService.get('SALT')));
-    const user = { ...createUserDto, password };
-    const newUser = this.usersRepository.create(user);
-    const response = await this.usersRepository.save(newUser);
+    const newUser = this.usersRepository.create({ ...createUserDto, password });
+    const user = await this.usersRepository.save(newUser);
 
     return {
       statusCode: 201,
       message: 'User created successfully',
       error: false,
-      data: this.destructureResponse(response)
+      data: this.destructureResponse(user)
     }
   }
 
