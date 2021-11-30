@@ -33,10 +33,11 @@ export class AuthService {
 
     async login(user: any) {
         const payload = { username: user.username, sub: user.id };
+        const refreshToken = await this.getRefreshTokenCookie(user.id);
+        await this.usersService.setCurrentRefreshToken(refreshToken, user.id);
         return {
-            access_token: this.jwtService.sign(payload, {
-                
-            }),
+            access_token: this.jwtService.sign(payload),
+            refresh_token: refreshToken,
             user
         };
     }
@@ -44,6 +45,17 @@ export class AuthService {
     async register(createUserDto: CreateUserDto) {
         const newUser = await this.usersService.register(createUserDto);
         return newUser;
+    }
+
+    async getRefreshTokenCookie(userId: number): Promise<string> {
+        const payload = { userId };
+        const token = this.jwtService.sign(payload, {
+            secret: this.configService.get('JWT_REFRESH_TOKEN_SECRET'),
+            expiresIn: `${this.configService.get('JWT_REFRESH_TOKEN_EXPIRY')}s`
+        })
+        const cookie = `Refresh=${token}; HttpOnly; Path=/; Max-Age=${this.configService.get('JWT_REFRESH_TOKEN_EXPIRY')}s`;
+
+        return cookie;
     }
 
     private async verifyPassword(plainTextPassword: string, hashedPassword: string) {

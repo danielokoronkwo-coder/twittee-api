@@ -8,6 +8,7 @@ import { User } from './entities/user.entity';
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
 import { ResponseWrapper } from 'src/utils/ResponseWrapper';
+import { HttpStatus } from '@nestjs/common';
 
 @Injectable()
 export class UsersService {
@@ -25,7 +26,7 @@ export class UsersService {
     const user = await this.usersRepository.save(newUser);
 
     return {
-      statusCode: 201,
+      statusCode: HttpStatus.CREATED,
       message: 'User created successfully',
       error: false,
       data: this.destructureResponse(user)
@@ -50,25 +51,31 @@ export class UsersService {
     }
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
-  }
+  // update(id: number, updateUserDto: UpdateUserDto) {
+  //   return `This action updates a #${id} user`;
+  // }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
-  }
+  // remove(id: number) {
+  //   return `This action removes a #${id} user`;
+  // }
 
   async findUserByUsername(username: any) {
     try {
       const users = await this.usersRepository.find();
       const user = users.find(user => user.username == username)
-      // console.log(user);
       return user;
     } catch (error) {
       console.log(error);
     }
   }
 
+  async setCurrentRefreshToken(refreshToken: string, userId: number) {
+    const currentHashedRefreshToken = await bcrypt.hash(refreshToken, parseInt(this.configService.get('SALT')));
+    await this.usersRepository.update(userId, {
+      hashedRefreshToken: currentHashedRefreshToken
+    });
+  }
+  
   private destructureResponse(response: User): Object {
     const { id, firstname, lastname, username, email } = response;
     return { id, firstname, lastname, username, email }
