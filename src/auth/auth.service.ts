@@ -7,6 +7,7 @@ import { CreateUserDto } from '../users/dto/create-user.dto';
 import { HttpException } from '@nestjs/common';
 import { HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { User } from 'src/users/entities/user.entity';
 
 
 @Injectable()
@@ -17,13 +18,18 @@ export class AuthService {
         private jwtService: JwtService
     ) { }
 
+    async register(createUserDto: CreateUserDto) {
+        const newUser = await this.usersService.register(createUserDto);
+        return newUser;
+    }
+
     async validateUser(username: string, password: string): Promise<any> {
         try {
             const user = await this.usersService.findUserByUsername(username);
             const isPasswordMatch = await this.verifyPassword(password, user.password);
 
             if (user && isPasswordMatch) {
-                const { password, ...result } = user;
+                const { password, hashedRefreshToken,...result } = user;
                 return result;
             }
         } catch (error) {
@@ -36,26 +42,30 @@ export class AuthService {
         const refreshToken = await this.getRefreshTokenCookie(user.id);
         await this.usersService.setCurrentRefreshToken(refreshToken, user.id);
         return {
-            access_token: this.jwtService.sign(payload),
-            refresh_token: refreshToken,
+            accessToken: this.jwtService.sign(payload),
+            expiresIn: `${this.configService.get('JWT_ACCESS_TOKEN_EXPIRY')}s`,
+            refreshToken,
             user
         };
     }
 
-    async register(createUserDto: CreateUserDto) {
-        const newUser = await this.usersService.register(createUserDto);
-        return newUser;
-    }
-
-    async getRefreshTokenCookie(userId: number): Promise<string> {
-        const payload = { userId };
-        const token = this.jwtService.sign(payload, {
+    async getRefreshTokenCookie(id: number): Promise<string> {
+        const payload = { id };
+        const refreshToken = this.jwtService.sign(payload, {
             secret: this.configService.get('JWT_REFRESH_TOKEN_SECRET'),
             expiresIn: `${this.configService.get('JWT_REFRESH_TOKEN_EXPIRY')}s`
-        })
-        const cookie = `Refresh=${token}; HttpOnly; Path=/; Max-Age=${this.configService.get('JWT_REFRESH_TOKEN_EXPIRY')}s`;
+        }) 
 
-        return cookie;
+        return refreshToken;
+    }
+
+    async getNewRefreshToken(refreshToken: string) {
+        const verifiedToken = this.jwtService.verify(refreshToken, {
+            secret: this.configService.get('JWT_REFRESH_TOKEN_SECRET'),
+        })
+        const { id } = verifiedToken
+        const user = await this.usersService.getUserIfRefreshTokenMatches(refreshToken, id)
+        return this.login(await this.removeEncryptedData(user))
     }
 
     private async verifyPassword(plainTextPassword: string, hashedPassword: string) {
@@ -65,5 +75,10 @@ export class AuthService {
         }
         
         return isPasswordMatching;
+    }
+
+    private async removeEncryptedData(user: User) {
+        const { password, hashedRefreshToken, ...rest } = user;
+        return rest;
     }
 }

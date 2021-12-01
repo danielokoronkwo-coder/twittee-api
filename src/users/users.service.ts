@@ -75,6 +75,19 @@ export class UsersService {
       hashedRefreshToken: currentHashedRefreshToken
     });
   }
+
+  async getUserIfRefreshTokenMatches(refreshToken: string, userId: number) {
+    const user = await this.findOne(userId);
+ 
+    const isRefreshTokenMatching = await bcrypt.compare(
+      refreshToken,
+      user.hashedRefreshToken
+    );
+ 
+    if (isRefreshTokenMatching) {
+      return user;
+    }
+  }
   
   private destructureResponse(response: User): Object {
     const { id, firstname, lastname, username, email } = response;
